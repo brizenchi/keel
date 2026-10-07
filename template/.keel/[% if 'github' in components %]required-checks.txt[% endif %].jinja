@@ -2,14 +2,17 @@
 [[- 'root' if dir in ['.', './', ''] else dir | replace('./', '') | replace('/', '-') | replace('_', '-') | replace('.', '-') | lower -]]
 [%- endmacro -%]
 [%- set p = (ci_caller_job ~ ' / ') if ci_mode == 'reusable' else '' -%]
-# Status checks required before merging into [[ default_branch ]].
-# Read by .standards/bin/setup-github. One check name per line, as shown on a
-# pull request. Add your own workflow's checks below; vulnerability audits
-# (*/ vuln, */ audit) are intentionally not required — a newly published CVE
-# in a dependency must not block an unrelated fix.
+# Status checks required before merging into [[ default_branch ]], applied by
+# `keel github`. One check name per line, exactly as shown on a pull request.
+# Append your own workflow's checks below; they survive `keel update`.
+# Vulnerability audits (*/ vuln, */ audit) are intentionally not required.
+[%- if 'commit-lint' in components %]
 [[ p ]]commits / pr-title
+[%- endif %]
+[%- if 'secrets' in components %]
 [[ p ]]secrets / gitleaks
-[%- if 'go' in languages %]
+[%- endif %]
+[%- if 'ci' in components and 'go' in languages %]
 [%- for m in go_modules %]
 [[ p ]]go-[[ slug(m.dir) ]] / check
 [%- if m.lint is not defined or m.lint %]
@@ -17,12 +20,12 @@
 [%- endif %]
 [%- endfor %]
 [%- endif %]
-[%- if 'node' in languages %]
+[%- if 'ci' in components and 'node' in languages %]
 [%- for n in node_projects %]
 [[ p ]]node-[[ slug(n.dir) ]] / check
 [%- endfor %]
 [%- endif %]
-[%- if 'python' in languages %]
+[%- if 'ci' in components and 'python' in languages %]
 [%- for y in python_projects %]
 [[ p ]]python-[[ slug(y.dir) ]] / check
 [%- endfor %]

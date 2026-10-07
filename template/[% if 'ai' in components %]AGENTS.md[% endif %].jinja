@@ -2,11 +2,13 @@
 
 Rules for AI coding assistants (Codex, Claude Code, Cursor, …) working in
 [[ project_name ]]. Subdirectories may add their own `AGENTS.md`; the closest one wins
-on conflict. Full standards: `docs/standards/` — read the linked document before
-working in that area. Project architecture and commands: `docs/standards/PROJECT.md`.
+on conflict. [% if 'docs' in components %]Full standards: `docs/standards/` — read the linked document before
+working in that area.
+Project architecture and commands: `docs/standards/PROJECT.md`.[% endif %]
 
-The sections above "Project-specific rules" are maintained by dev-standards and
-updated with `uvx copier update`; edit the project section freely.
+The sections above "Project-specific rules" are maintained by keel
+(https://github.com/brizenchi/keel) and updated with `keel update`; edit the
+project section freely.
 
 ## Must
 
@@ -17,18 +19,18 @@ updated with `uvx copier update`; edit the project section freely.
   or query strings.
 - Handle each error once: add context and return it, or handle it at the boundary
   (HTTP handler, consumer, job). Map known errors to responses in one place; unknown
-  errors log once at ERROR and return a generic message. → `docs/standards/CODE_STYLE.md`
+  errors log once at ERROR and return a generic message. [% if 'docs' in components %]→ `docs/standards/CODE_STYLE.md`[% endif %]
 - HTTP APIs: `/api/v1` paths, one response envelope, correct status codes, a stable
   `reason` for errors the client must branch on, `page`/`limit`/`items`/`total`
-  pagination, RFC 3339 UTC times, integer money in minor units. → `docs/standards/API_STANDARD.md`
+  pagination, RFC 3339 UTC times, integer money in minor units. [% if 'docs' in components %]→ `docs/standards/API_STANDARD.md`[% endif %]
 - When an API changes, update its callers' types/clients in the same change.
 - Database: never edit an applied migration; add a new one. Parameterized queries only;
   list queries have `LIMIT` and a stable order; expand → migrate → contract for
-  breaking schema changes. → `docs/standards/DATABASE.md`
+  breaking schema changes. [% if 'docs' in components %]→ `docs/standards/DATABASE.md`[% endif %]
 - Check resource ownership on every read/write; return 404 for other users' resources.
-  → `docs/standards/SECURITY_STANDARD.md`
+  [% if 'docs' in components %]→ `docs/standards/SECURITY_STANDARD.md`[% endif %]
 - Add or update tests with every behaviour change; a bug fix starts with a failing test.
-  No network access in tests. → `docs/standards/TESTING.md`
+  No network access in tests. [% if 'docs' in components %]→ `docs/standards/TESTING.md`[% endif %]
 - Fake secrets in tests must look fake: `sk_test_not-a-real-key`, `whsec_not-a-real-secret`.
 [%- if 'go' in languages %]
 
@@ -36,14 +38,14 @@ updated with `uvx copier update`; edit the project section freely.
 - `gofmt -s`; `go vet`; `go test -race`. `ctx context.Context` is the first parameter,
   never stored in structs; use `db.WithContext(ctx)` and `http.NewRequestWithContext`.
 - Wrap errors with `fmt.Errorf("…: %w", err)`; compare with `errors.Is/As`; log with
-  `slog.InfoContext(ctx, …)`. → `docs/standards/GO.md`
+  `slog.InfoContext(ctx, …)`. [% if 'docs' in components %]→ `docs/standards/GO.md`[% endif %]
 [%- endif %]
 [%- if 'node' in languages %]
 
 ## Node / TypeScript
 - Strict TypeScript, no `any`. All backend calls go through the shared API client; never
   call `fetch` from components. Show users messages derived from `status`/`reason`, never
-  the raw server message; show the request id for 5xx. → `docs/standards/NODE.md`
+  the raw server message; show the request id for 5xx. [% if 'docs' in components %]→ `docs/standards/NODE.md`[% endif %]
 - Browser-exposed env vars (`NEXT_PUBLIC_*`, `VITE_*`) never contain secrets.
 [%- endif %]
 [%- if 'python' in languages %]
@@ -51,26 +53,27 @@ updated with `uvx copier update`; edit the project section freely.
 ## Python
 - `uv` for environments and dependencies (commit `uv.lock`); `ruff check` and
   `ruff format`; type hints on public functions; `pytest`.
-- Raise domain exceptions with `from exc`; no bare `except:`. → `docs/standards/PYTHON.md`
+- Raise domain exceptions with `from exc`; no bare `except:`. [% if 'docs' in components %]→ `docs/standards/PYTHON.md`[% endif %]
 [%- endif %]
 
 ## Must not
 
 - Commit real secrets or `.env` files; print secrets in output.
 - Push to `[[ default_branch ]]`, force-push, rewrite pushed history, or bypass hooks with `--no-verify`.
-- Add a dependency without a stated reason (`docs/standards/CI_QUALITY.md#依赖管理`).
+- Add a dependency without a stated reason [% if 'docs' in components %](`docs/standards/CI_QUALITY.md#依赖管理`)[% endif %].
 - Use float types for money or panic/exceptions for expected business outcomes.
 
 ## Commits and pull requests
 
 Conventional Commits: `type(scope): subject` (≤ 72 chars) — types
 `feat fix perf refactor docs test build ci chore revert`. The PR title becomes the squash
-commit. → `docs/standards/GIT_WORKFLOW.md`
+commit. [% if 'docs' in components %]→ `docs/standards/GIT_WORKFLOW.md`[% endif %]
 
 ## Before finishing
 
-Run the checks listed in `.github/pull_request_template.md` for the parts you changed and
-report failures as they are; never claim success without running them.
+Run the checks for the parts you changed[% if 'pr-template' in components %] (listed in
+`.github/pull_request_template.md`)[% endif %] and report failures as they are; never claim
+success without running them.
 
 ## Project-specific rules
 

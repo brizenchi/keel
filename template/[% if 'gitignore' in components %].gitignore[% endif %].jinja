@@ -29,7 +29,7 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 [%- endif %]
-[%- if ai_rules %]
+[%- if 'ai' in components %]
 
 # Claude Code: share team config (settings.json, hooks, skills); keep personal files local.
 .claude/*

@@ -1,0 +1,31 @@
+name: Bug report
+description: Something keel generated or did is wrong
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: Command you ran, what you expected, what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce
+      description: Minimal steps. Include the relevant part of `.keel/answers.yml` (no secrets).
+      render: shell
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: keel version
+      description: Output of `keel version` and the `_commit` line of `.keel/answers.yml`.
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      description: OS, `uv --version`, `git --version`.

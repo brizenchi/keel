@@ -1,8 +1,51 @@
 # Changelog
 
+All notable changes to keel are documented here. The format follows
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
+[Semantic Versioning](https://semver.org/): template output, CLI behaviour and
+reusable-workflow inputs are the public API.
+
 ## [Unreleased]
 
-## [1.0.0]
+## [2.0.0] — 2026-10-07
+
+The project is renamed from **dev-standards** to **keel**. See
+[docs/migration.md](docs/migration.md) for upgrading a 1.x installation.
+
+### Added
+
+- `keel` CLI (single bash script, also shipped as `.keel/bin/keel` in every
+  project): `init`, `status`, `doctor`, `config`, `components`, `enable`,
+  `disable`, `set`, `add`, `remove`, `update`, `hooks`, `github`,
+  `lint-commit`.
+- Selectable components at install time — `docs`, `ci`, `commit-lint`,
+  `secrets`, `hooks`, `github`, `pr-template`, `codeowners`, `dependabot`,
+  `security-policy`, `editorconfig`, `gitignore`, `ai`. Disabling a component
+  removes its files; enabling it brings them back.
+- `install.sh` installs the CLI to `~/.local/bin`.
+- Reusable workflows: `vuln-blocking` / `audit-blocking` inputs (audits are
+  non-blocking by default); `go.yml` supports golangci-lint v1 and v2;
+  `node.yml` accepts an explicit `package-manager`.
+- Open-source project files: contributing guide, code of conduct, security
+  policy, issue and pull request templates, release workflow.
+
+### Changed
+
+- Generated files live under `.keel/`: answers in `.keel/answers.yml`,
+  required checks in `.keel/required-checks.txt`, CLI in `.keel/bin/keel`.
+- The generated workflow is `.github/workflows/keel.yml` and references the
+  reusable workflows as `brizenchi/keel/.github/workflows/*.yml@v2`.
+- The GitHub ruleset created by `keel github` is named `keel`.
+
+### Removed
+
+- `.standards/bin/setup-github` (now `keel github`) and
+  `.standards/bin/check-commit-msg.sh` (now `keel lint-commit`).
+- The `ai_rules` question (now the `ai` component).
+
+## [1.0.0] — 2026-10-07
+
+Released as **dev-standards**.
 
 ### Added
 
@@ -11,3 +54,7 @@
   SECURITY.md, `.standards/bin/setup-github`, `.standards/bin/check-commit-msg.sh`.
 - Reusable workflows: `pr-title`, `secrets`, `go`, `node`, `python`.
 - `install.sh` one-command installer.
+
+[Unreleased]: https://github.com/brizenchi/keel/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/brizenchi/keel/compare/v1.0.0...v2.0.0
+[1.0.0]: https://github.com/brizenchi/keel/releases/tag/v1.0.0

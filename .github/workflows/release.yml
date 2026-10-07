@@ -1,0 +1,62 @@
+name: release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Install actionlint
+        run: |
+          bash <(curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.12/scripts/download-actionlint.bash) 1.7.12
+          sudo mv actionlint /usr/local/bin/
+      - run: uv run --no-project --with pyyaml -- bash tests/run.sh
+
+  release:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check CLI version matches the tag
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          cli=$(sed -n 's/^KEEL_CLI_VERSION="\(.*\)"$/\1/p' template/.keel/bin/keel)
+          [ "v$cli" = "$TAG" ] || { echo "::error::KEEL_CLI_VERSION is $cli but the tag is $TAG"; exit 1; }
+      - name: Release notes from CHANGELOG.md
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          version=${TAG#v}
+          awk -v v="$version" '
+            index($0, "## [" v "]") == 1 { on = 1; next }
+            on && /^## \[/ { exit }
+            on { print }
+          ' CHANGELOG.md > notes.md
+          [ -s notes.md ] || { echo "::error::no CHANGELOG.md section for $version"; exit 1; }
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          prerelease=()
+          case "$TAG" in *-*) prerelease=(--prerelease) ;; esac
+          gh release create "$TAG" --title "$TAG" --notes-file notes.md --verify-tag "${prerelease[@]}"
+      # Fast-forward only: if the major branch has diverged from the release
+      # history this fails loudly instead of rewriting it.
+      - name: Fast-forward the major branch to this release
+        if: ${{ !contains(github.ref_name, '-') }}
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          major=${TAG%%.*}
+          git push origin "refs/tags/$TAG^{commit}:refs/heads/$major"

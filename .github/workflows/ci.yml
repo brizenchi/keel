@@ -17,14 +17,23 @@ jobs:
     uses: ./.github/workflows/secrets.yml
 
   template:
-    name: template
-    runs-on: ubuntu-latest
+    name: template (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        # macOS runs the CLI under the system bash 3.2.
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
-      - name: Install actionlint
+      - name: Install actionlint and shellcheck (Linux)
+        if: runner.os == 'Linux'
         run: |
           bash <(curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.12/scripts/download-actionlint.bash) 1.7.12
           sudo mv actionlint /usr/local/bin/
+      - name: Install actionlint and shellcheck (macOS)
+        if: runner.os == 'macOS'
+        run: brew install actionlint shellcheck
       - name: Self-test (render matrix, lint, update merge)
-        run: tests/run.sh
+        run: uv run --no-project --with pyyaml -- bash tests/run.sh

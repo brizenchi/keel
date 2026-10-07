@@ -5,6 +5,7 @@
 ### 1. 安装通用工具
 ```bash
 brew install git gh lefthook gitleaks uv
+curl -fsSL https://raw.githubusercontent.com/brizenchi/keel/main/install.sh | sh   # keel 命令（可选；项目里也有 .keel/bin/keel）
 ```
 [%- if 'go' in languages %]
 Go：版本以 `go.mod` 为准（`brew install go`）。
@@ -20,7 +21,10 @@ Python：使用 `uv` 管理（`uv python install` 会按项目要求安装）。
 ```bash
 git clone git@github.com:[[ github_repo ]].git
 cd [[ github_repo.split('/')[1] ]]
-lefthook install          # 提交前检查：密钥扫描、格式
+keel doctor               # 检查工具是否齐全
+[%- if 'hooks' in components %]
+keel hooks                # 安装提交前检查：密钥扫描、格式
+[%- endif %]
 ```
 
 ### 3. 运行项目
@@ -41,7 +45,7 @@ lefthook install          # 提交前检查：密钥扫描、格式
 3. `git commit -m "fix(<scope>): <说明>"`；
 4. 推送并创建 PR，按模板填写，标题和提交信息格式一致；
 5. 根据审查意见修改，CI 通过后 squash 合并。
-[%- if ai_rules %]
+[%- if 'ai' in components %]
 
 ## 使用 AI 助手
 

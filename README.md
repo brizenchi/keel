@@ -1,134 +1,150 @@
-# dev-standards
+<div align="center">
 
-Engineering standards for any Git repository — Go, Node / TypeScript and Python —
-installed with one command and kept up to date without losing local edits.
+# keel
 
-What a project gets:
+**Engineering standards for any Git repository — installed in one command, tuned per project, upgraded without losing your edits.**
 
-| Area | Files |
-| --- | --- |
-| Standards (Chinese) | `docs/standards/`: Git workflow, code review, code style and error handling, Go / Node / Python rules, API, database, security, testing, CI, incident response, onboarding, AI assistants, and a project-owned `PROJECT.md` |
-| Git integration | Conventional Commits PR-title check, PR template, CODEOWNERS, Dependabot, `.standards/bin/setup-github` (squash-only merges, branch ruleset with required checks, secret scanning + push protection, Dependabot alerts, private vulnerability reporting) |
-| CI | `.github/workflows/standards.yml` calling versioned reusable workflows from this repository: `pr-title`, `secrets` (gitleaks), `go`, `node`, `python` |
-| Local hooks | `lefthook.yml`: secret scan + formatter only; everything else is CI's job |
-| AI assistants | `AGENTS.md` (Codex, Cursor, …), `CLAUDE.md`, Claude Code hooks that format edits and block `--no-verify` / force pushes |
+[![CI](https://github.com/brizenchi/keel/actions/workflows/ci.yml/badge.svg)](https://github.com/brizenchi/keel/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/brizenchi/keel?sort=semver)](https://github.com/brizenchi/keel/releases)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-Deployment is intentionally out of scope: projects keep their own deploy workflows.
+English · [简体中文](README.zh-CN.md)
+
+</div>
+
+keel gives a repository the boring-but-essential parts of a well-run codebase:
+written standards, CI quality gates, secret scanning, Conventional Commits,
+GitHub branch rules, Dependabot, and rules for AI coding assistants. You pick
+the pieces you want; every generated file stays a plain, editable file in your
+repository.
+
+```console
+$ keel init
+? Components to install
+  ◉ docs            standards documents (docs/standards/)
+  ◉ ci              language checks in CI (.github/workflows/keel.yml)
+  ◉ commit-lint     PR titles must follow Conventional Commits (CI)
+  ◉ secrets         secret scanning: gitleaks config + CI job
+  ◉ hooks           local git hooks: secret scan + formatters (lefthook.yml)
+  ◯ ai              AI assistant rules: AGENTS.md, CLAUDE.md, Claude Code hooks
+  …
+? Languages used in this repository  ◉ Go  ◉ Node / TypeScript  ◯ Python
+```
+
+## Why keel
+
+- **Choose, don't inherit.** Thirteen independent components. Untick one and
+  its files are never written; disable it later and they are removed.
+- **Yours to edit.** Generated files are ordinary files. `keel update` performs
+  a three-way merge, so local edits survive upgrades and real conflicts are
+  shown like a Git merge. Files such as `PROJECT.md` and `CODEOWNERS` are never
+  touched after the first install.
+- **CI is the gate, not your laptop.** Checks run in GitHub Actions through
+  versioned [reusable workflows](docs/workflows.md). Local hooks only do what
+  must happen before code leaves your machine: secret scanning and formatting.
+- **Git-native.** `keel github` applies a branch ruleset (required checks,
+  squash-only merges, linear history), secret scanning with push protection,
+  Dependabot alerts and private vulnerability reporting — idempotently.
+- **Deterministic.** Installation is template rendering with
+  [Copier](https://copier.readthedocs.io/). No AI is involved; the same answers
+  produce the same files.
+- **Go, Node / TypeScript, Python**, including monorepos with several modules.
 
 ## Install
 
-In the root of a Git repository with a clean working tree:
+keel needs `git` and [uv](https://docs.astral.sh/uv/) (or pipx).
 
 ```bash
-sh -c "$(curl -fsSL https://raw.githubusercontent.com/brizenchi/dev-standards/main/install.sh)"
+curl -fsSL https://raw.githubusercontent.com/brizenchi/keel/main/install.sh | sh
 ```
 
-or directly with [Copier](https://copier.readthedocs.io/) (via [uv](https://docs.astral.sh/uv/)):
+This places a single script at `~/.local/bin/keel`. Every project also gets its
+own copy at `.keel/bin/keel`, so teammates can run it without a global install.
+
+## Quick start
 
 ```bash
-uvx copier copy gh:brizenchi/dev-standards .
+cd your-repo            # a Git repository with a clean working tree
+keel init               # choose components and answer a few questions
+git diff                # review what was generated
+keel hooks              # install local git hooks (needs lefthook, gitleaks)
+keel github --dry-run   # preview GitHub settings, then run without --dry-run
+git add -A && git commit -m "chore: install keel"
 ```
 
-Copier asks a few questions (languages, directories, CI mode, …) and records the
-answers in `.copier-answers.yml`. Then:
+Non-interactive, e.g. in a bootstrap script:
 
 ```bash
-git diff                                   # review
-brew install lefthook gitleaks && lefthook install
-gh auth login && .standards/bin/setup-github --dry-run   # then without --dry-run
-git add -A && git commit -m "chore: install dev-standards"
-```
-
-Non-interactive example:
-
-```bash
-uvx copier copy --defaults gh:brizenchi/dev-standards . \
+keel init --defaults -- \
   --data 'languages=["go","node"]' \
   --data 'go_modules=[{"dir": "."}]' \
-  --data 'node_projects=[{"dir": "web", "scripts": "lint test build"}]'
+  --data 'node_projects=[{"dir": "web"}]'
 ```
 
-## Update
+## Day-to-day
 
-```bash
-uvx copier update             # re-ask questions, merge the new version
-uvx copier update --defaults  # keep previous answers
-```
-
-Copier performs a three-way merge between the version you installed, the new
-version and your working tree: your edits are kept, and real conflicts are marked
-inline like a Git merge. Resolve them, run your checks and commit
-(`chore: update dev-standards`).
-
-## Customising per project
-
-| Want to… | Do |
+| Task | Command |
 | --- | --- |
-| Change languages, directories, scripts, CI mode | `uvx copier update` and answer differently |
-| Add project conventions (architecture, deploy, commands) | Edit `docs/standards/PROJECT.md` and the "Project-specific rules" section of `AGENTS.md` |
-| Tweak any generated file | Edit it; updates merge around your changes |
-| Own a file completely | `CODEOWNERS`, `SECURITY.md`, `CLAUDE.md`, `.gitignore` and `PROJECT.md` are never overwritten after the first install |
-| Add your own CI checks | Put them in another workflow file; append their names to `.github/required-checks.txt` and rerun `setup-github` |
-| Gate a deploy on the standards | Choose `ci_mode=reusable`; call `./.github/workflows/standards.yml` from your pipeline and add `needs:` to the deploy job |
+| See what is installed, outdated or missing | `keel status` |
+| Check local tooling | `keel doctor` |
+| Turn components on or off | `keel enable ai` · `keel disable dependabot` |
+| Change an answer | `keel set default_branch=develop` |
+| Add a module to check | `keel add go_modules dir=services/api` |
+| Re-answer everything interactively | `keel config` |
+| Upgrade to the latest release | `keel update` |
+| Validate a commit message | `keel lint-commit -m "feat(api): add search"` |
 
-### Answers
+Every command that changes files requires a clean working tree and ends by
+listing the changed files, so each change is one reviewable diff.
 
-| Question | Meaning |
-| --- | --- |
-| `languages` | Any of `go`, `node`, `python` |
-| `go_modules` | `[{dir, packages?, lint?, lint_version?}]` — `packages` defaults to `./...` |
-| `node_projects` | `[{dir, scripts?, node_version?, package_manager?}]` — scripts default to `lint test build`; package manager from the lockfile unless set |
-| `python_projects` | `[{dir, python_version?, test_command?}]` |
-| `commit_scopes` | Suggested scopes shown in the Git workflow document |
-| `ci_mode` | `standalone` (runs on PRs and pushes) or `reusable` (called by your workflow) |
-| `ai_rules` | Install `AGENTS.md`, `CLAUDE.md` and Claude Code hooks |
+## What you get
 
-## Reusable workflows
-
-Usable directly, without Copier:
-
-```yaml
-jobs:
-  go:
-    uses: brizenchi/dev-standards/.github/workflows/go.yml@v1
-    with:
-      working-directory: backend
-```
-
-| Workflow | Jobs | Inputs |
+| Component | Files | Enforced by |
 | --- | --- | --- |
-| `pr-title.yml` | `pr-title` | `types` |
-| `secrets.yml` | `gitleaks` | `gitleaks-version` |
-| `go.yml` | `check`, `lint`, `vuln` | `working-directory`, `packages`, `go-version-file`, `lint`, `lint-version` (v1.x or v2.x), `vuln-blocking` |
-| `node.yml` | `check`, `audit` | `working-directory`, `node-version`, `scripts`, `package-manager`, `audit-blocking` |
-| `python.yml` | `check`, `audit` | `working-directory`, `python-version`, `test-command`, `audit-blocking` |
+| `docs` | `docs/standards/` — Git workflow, code review, code style and error handling, Go / Node / Python, API, database, security, testing, CI, incident response, onboarding, and a project-owned `PROJECT.md` | review |
+| `ci` | `.github/workflows/keel.yml` — gofmt/vet/race tests/golangci-lint, package scripts, ruff/pytest, vulnerability audits | GitHub Actions |
+| `commit-lint` | Conventional Commits check of PR titles | GitHub Actions |
+| `secrets` | `.gitleaks.toml` + full-history scan | GitHub Actions, local hook |
+| `hooks` | `lefthook.yml` — secret scan and formatters on commit | git |
+| `github` | `.keel/required-checks.txt` for `keel github` | GitHub ruleset |
+| `pr-template`, `codeowners`, `dependabot`, `security-policy`, `editorconfig`, `gitignore` | the usual repository files | GitHub |
+| `ai` | `AGENTS.md`, `CLAUDE.md`, Claude Code hooks (format edits, block `--no-verify` and force pushes) | the assistant / Claude Code |
+
+Details: [docs/components.md](docs/components.md). The standards documents are
+currently written in Simplified Chinese; an English edition is on the roadmap.
+
+## Customising
+
+| You want to… | Do this |
+| --- | --- |
+| Adjust any generated file | Edit it. `keel update` merges around your changes. |
+| Record project conventions | `docs/standards/PROJECT.md` and the *Project-specific rules* section of `AGENTS.md` |
+| Add your own CI checks | Another workflow file; append the check names to `.keel/required-checks.txt`, then `keel github` |
+| Gate a deploy on keel's checks | `keel set ci_mode=reusable`, call `./.github/workflows/keel.yml` from your pipeline and add `needs:` |
+| Change a rule for every project | Fork or contribute to keel, release, then `keel update` in each project |
+
+All answers are documented in [docs/configuration.md](docs/configuration.md).
+
+## Documentation
+
+- [CLI reference](docs/cli.md)
+- [Components](docs/components.md)
+- [Configuration (answers)](docs/configuration.md)
+- [Reusable workflows](docs/workflows.md)
+- [Migrating from dev-standards 1.x](docs/migration.md)
 
 ## Versioning
 
-Releases are tagged `vX.Y.Z`. Generated workflows reference the reusable
-workflows as `@v1`, which is a **branch** fast-forwarded to the latest `1.x`
-release (a branch, not a tag: Copier versions projects by tags, and a moving
-`v1` tag would hide the installed version from `copier update`).
-`copier update` moves projects to the newest `vX.Y.Z` tag. Breaking changes
-(renamed inputs, removed jobs, new required checks) bump the major version and
-start a `v2` branch. See [CHANGELOG.md](CHANGELOG.md).
+Releases are tagged `vX.Y.Z` and follow [Semantic Versioning](https://semver.org/).
+Generated workflows reference `@v2`, a branch that tracks the latest 2.x
+release; projects record the exact installed tag in `.keel/answers.yml`.
+See [CHANGELOG.md](CHANGELOG.md).
 
-Release:
+## Contributing
 
-```bash
-git tag v1.2.0 && git branch -f v1 v1.2.0
-git push origin main v1 v1.2.0
-```
+Issues and pull requests are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
+Please report security issues privately as described in [SECURITY.md](SECURITY.md).
 
-## Developing this repository
+## License
 
-```bash
-tests/run.sh      # renders the template in several configurations and lints the result
-```
-
-Requires `uv`, `actionlint` and `shellcheck`.
-
-Vulnerability jobs (`vuln`, `audit`) are non-blocking by default: they report
-findings without failing the calling workflow, so a deploy that `needs:` the
-standards is not blocked by a newly published CVE. Set `vuln-blocking` /
-`audit-blocking` to `true` to make them gate.
+[MIT](LICENSE) © brizenchi

@@ -1,18 +1,20 @@
-# dev-standards — engineering standards for any Git repository.
+# keel — engineering standards for any Git repository.
 #
-#   Install:  sh -c "$(curl -fsSL https://raw.githubusercontent.com/brizenchi/dev-standards/main/install.sh)"
-#   Update:   uvx copier update
+# Use the `keel` CLI rather than calling Copier directly:
+#   keel init        install into the current repository
+#   keel config      change answers / components (keeps the installed version)
+#   keel update      move to a newer keel release
 #
-# Files are plain and editable. `copier update` re-applies the template with a
-# three-way merge, so local edits survive; conflicts are marked inline.
+# Answers live in .keel/answers.yml. Every generated file is plain and editable:
+# updates are three-way merges, so local edits survive.
 
-_min_copier_version: "9.0.0"
+_min_copier_version: "9.4.0"
 _subdirectory: template
-_answers_file: .copier-answers.yml
+_answers_file: .keel/answers.yml
 
-# GitHub Actions uses ${{ }} and shell scripts use [[ ]] in places, so templates
-# use [[ … ]] / [% … %] instead of Jinja's defaults. Files containing literal
-# "[[" (TOML, bash) are kept as non-template files (no .jinja suffix).
+# GitHub Actions uses ${{ }}, so templates use [[ … ]] / [% … %] instead of
+# Jinja's defaults. Files containing a literal "[[" (TOML, bash) stay
+# non-template files (no .jinja suffix).
 _envops:
   block_start_string: "[%"
   block_end_string: "%]"
@@ -22,7 +24,7 @@ _envops:
   comment_end_string: "#]"
   keep_trailing_newline: true
 
-# Owned by the project after the first copy: never overwritten by updates.
+# Owned by the project after the first install; updates never overwrite them.
 _skip_if_exists:
   - .github/CODEOWNERS
   - CLAUDE.md
@@ -32,39 +34,37 @@ _skip_if_exists:
 
 _message_after_copy: |
 
-  dev-standards installed in [[ _copier_conf.dst_path ]].
+  keel installed. Review with `git status` and `git diff`, then:
 
-  Next steps:
-    1. Review the changes:            git status && git diff
-    2. Install local hooks:           brew install lefthook gitleaks && lefthook install
-    3. Fill in project rules:         docs/standards/PROJECT.md and the "Project-specific rules" section of AGENTS.md
-  [% if ci_mode == "reusable" %]
-    4. Call the standards from your pipeline (ci_mode=reusable):
-         jobs:
-           [[ ci_caller_job ]]:
-             uses: ./.github/workflows/standards.yml
-  [% endif %]
-    5. Configure the GitHub repository (branch ruleset, squash-only merges, secret scanning):
-         gh auth login && .standards/bin/setup-github --dry-run   # then without --dry-run
-    6. Commit:                        git add -A && git commit -m "chore: install dev-standards"
+    keel status                 what is installed and what still needs doing
+  [%- if 'hooks' in components %]
+    keel hooks                  install the local git hooks (lefthook)
+  [%- endif %]
+  [%- if 'github' in components %]
+    keel github --dry-run       preview GitHub settings (rulesets, squash merges, secret scanning)
+  [%- endif %]
+  [%- if ci_mode == 'reusable' %]
+    call .github/workflows/keel.yml from your own workflow:  [[ ci_caller_job ]]: { uses: ./.github/workflows/keel.yml }
+  [%- endif %]
+    git add -A && git commit -m "chore: install keel"
 
-  Later, pull new versions of the standards with:  uvx copier update
+  Change components or answers later with `keel config`, `keel enable`, `keel disable`, `keel set`.
 
 _message_after_update: |
 
-  dev-standards updated. Resolve any conflict markers, review `git diff`, run your checks, then commit.
+  keel files updated. Resolve any conflict markers, review `git diff`, then commit.
 
 # ---------------------------------------------------------------- questions
 
 project_name:
   type: str
-  help: Project name (used in docs)
+  help: Project name
   default: "[[ _folder_name ]]"
 
 github_repo:
   type: str
   help: GitHub repository (owner/name)
-  default: "brizenchi/[[ project_name ]]"
+  default: "your-org/[[ project_name ]]"
   validator: >-
     [% if not (github_repo | regex_search('^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$')) %]must look like owner/name[% endif %]
 
@@ -73,10 +73,25 @@ default_branch:
   help: Default branch
   default: main
 
-codeowners:
+components:
   type: str
-  help: Default code owners (space separated GitHub handles or teams)
-  default: "@[[ github_repo.split('/')[0] ]]"
+  help: Components to install (space toggles, enter confirms)
+  multiselect: true
+  choices:
+    "docs            standards documents (docs/standards/)": docs
+    "ci              language checks in CI (.github/workflows/keel.yml)": ci
+    "commit-lint     PR titles must follow Conventional Commits (CI)": commit-lint
+    "secrets         secret scanning: gitleaks config + CI job": secrets
+    "hooks           local git hooks: secret scan + formatters (lefthook.yml)": hooks
+    "github          required-checks list used by `keel github`": github
+    "pr-template     pull request template": pr-template
+    "codeowners      CODEOWNERS": codeowners
+    "dependabot      Dependabot version updates": dependabot
+    "security-policy SECURITY.md": security-policy
+    "editorconfig    .editorconfig": editorconfig
+    "gitignore       .gitignore (only when the project has none)": gitignore
+    "ai              AI assistant rules: AGENTS.md, CLAUDE.md, Claude Code hooks": ai
+  default: '["docs", "ci", "commit-lint", "secrets", "hooks", "github", "pr-template", "codeowners", "dependabot", "security-policy", "editorconfig", "gitignore", "ai"]'
 
 languages:
   type: str
@@ -90,49 +105,47 @@ languages:
 
 go_modules:
   type: yaml
-  help: >-
-    Go modules to check. List of {dir, packages?, lint?, lint_version?}.
-    packages defaults to "./...", lint to true.
+  help: "Go modules to check: list of {dir, packages?, lint?, lint_version?}"
   default: '[{"dir": "."}]'
   when: "[[ 'go' in languages ]]"
 
 node_projects:
   type: yaml
-  help: >-
-    Node projects to check. List of {dir, scripts?, node_version?, package_manager?}.
-    scripts defaults to "lint test build" (each run with --if-present).
+  help: "Node projects to check: list of {dir, scripts?, node_version?, package_manager?}"
   default: '[{"dir": "."}]'
   when: "[[ 'node' in languages ]]"
 
 python_projects:
   type: yaml
-  help: >-
-    Python projects to check. List of {dir, python_version?, test_command?}.
+  help: "Python projects to check: list of {dir, python_version?, test_command?}"
   default: '[{"dir": "."}]'
   when: "[[ 'python' in languages ]]"
 
+codeowners:
+  type: str
+  help: Default code owners (space separated GitHub handles or teams)
+  default: "@[[ github_repo.split('/')[0] ]]"
+  when: "[[ 'codeowners' in components ]]"
+
 commit_scopes:
   type: yaml
-  help: Suggested commit scopes, e.g. ["api", "web", "docs"] (documentation only; any scope is accepted)
+  help: Suggested commit scopes, e.g. ["api", "web"] (documentation only; any scope is accepted)
   default: "[]"
+  when: "[[ 'docs' in components ]]"
 
 ci_mode:
   type: str
   help: >-
-    standalone = .github/workflows/standards.yml runs on pull requests and pushes;
-    reusable = it only runs when your own workflow calls it (use this to make deploy jobs `needs:` the standards)
+    standalone: keel.yml runs on pull requests and pushes.
+    reusable: your own workflow calls it (lets a deploy job `needs:` the checks).
   choices:
     standalone: standalone
     reusable: reusable
   default: standalone
+  when: "[[ 'commit-lint' in components or 'secrets' in components or ('ci' in components and languages) ]]"
 
 ci_caller_job:
   type: str
-  help: Job id of your workflow that calls standards.yml (used for required-check names)
-  default: standards
+  help: Job id in your workflow that calls keel.yml (prefixes the required check names)
+  default: keel
   when: "[[ ci_mode == 'reusable' ]]"
-
-ai_rules:
-  type: bool
-  help: Install AI assistant rules (AGENTS.md, CLAUDE.md, Claude Code hooks)?
-  default: true
