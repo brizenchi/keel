@@ -1,0 +1,30 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  # Dogfood: this repository follows its own standards.
+  commits:
+    uses: ./.github/workflows/pr-title.yml
+
+  secrets:
+    uses: ./.github/workflows/secrets.yml
+
+  template:
+    name: template
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Install actionlint
+        run: |
+          bash <(curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.12/scripts/download-actionlint.bash) 1.7.12
+          sudo mv actionlint /usr/local/bin/
+      - name: Self-test (render matrix, lint, update merge)
+        run: tests/run.sh

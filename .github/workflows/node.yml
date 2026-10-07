@@ -1,0 +1,102 @@
+# Reusable: Node / TypeScript checks for one package. Standard: docs/standards/NODE.md
+#   check — install with the package manager detected from the lockfile, then run
+#           the given package.json scripts (missing scripts are skipped)
+#   audit — dependency audit of production dependencies; non-blocking by default
+name: node
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        type: string
+        default: "."
+      node-version:
+        type: string
+        default: "22"
+      scripts:
+        description: Space-separated package.json scripts to run in order
+        type: string
+        default: lint test build
+      package-manager:
+        description: auto (from the lockfile; npm wins when several exist), npm, pnpm or yarn
+        type: string
+        default: auto
+      audit-blocking:
+        description: Fail the workflow when the audit finds a high severity issue
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Detect package manager
+        id: pm
+        env:
+          REQUESTED: ${{ inputs.package-manager }}
+        run: |
+          case "$REQUESTED" in
+            npm|pnpm|yarn) echo "name=$REQUESTED" >> "$GITHUB_OUTPUT" ;;
+            *)
+              if [ -f package-lock.json ]; then echo "name=npm" >> "$GITHUB_OUTPUT"
+              elif [ -f pnpm-lock.yaml ]; then echo "name=pnpm" >> "$GITHUB_OUTPUT"
+              elif [ -f yarn.lock ]; then echo "name=yarn" >> "$GITHUB_OUTPUT"
+              else echo "name=npm" >> "$GITHUB_OUTPUT"; fi ;;
+          esac
+      - if: steps.pm.outputs.name == 'pnpm'
+        uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: ${{ steps.pm.outputs.name }}
+          cache-dependency-path: |
+            ${{ inputs.working-directory }}/package-lock.json
+            ${{ inputs.working-directory }}/pnpm-lock.yaml
+            ${{ inputs.working-directory }}/yarn.lock
+      - name: Install
+        env:
+          PM: ${{ steps.pm.outputs.name }}
+        run: |
+          case "$PM" in
+            pnpm) pnpm install --frozen-lockfile ;;
+            yarn) yarn install --frozen-lockfile ;;
+            *) if [ -f package-lock.json ]; then npm ci; else npm install; fi ;;
+          esac
+      - name: Run scripts
+        env:
+          PM: ${{ steps.pm.outputs.name }}
+          SCRIPTS: ${{ inputs.scripts }}
+        run: |
+          for s in $SCRIPTS; do
+            if node -e "process.exit(require('./package.json').scripts?.['$s'] ? 0 : 1)"; then
+              echo "::group::$PM run $s"; "$PM" run "$s"; echo "::endgroup::"
+            else
+              echo "skip: no \"$s\" script"
+            fi
+          done
+
+  audit:
+    name: audit
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ !inputs.audit-blocking }}
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+      - name: Audit production dependencies
+        run: |
+          if [ -f pnpm-lock.yaml ]; then npx --yes pnpm@9 audit --prod --audit-level high
+          elif [ -f yarn.lock ]; then npx --yes yarn@1 audit --groups dependencies --level high
+          else npm audit --omit=dev --audit-level=high; fi

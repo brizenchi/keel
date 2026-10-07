@@ -1,0 +1,86 @@
+# Reusable: Python checks for one project. Standard: docs/standards/PYTHON.md
+#   check — ruff lint + format check, then tests
+#   audit — pip-audit of the locked/declared dependencies; non-blocking by default
+name: python
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        type: string
+        default: "."
+      python-version:
+        type: string
+        default: "3.12"
+      test-command:
+        description: Empty = auto (pytest when a tests/ directory or pytest config exists)
+        type: string
+        default: ""
+      audit-blocking:
+        description: Fail the workflow when pip-audit finds a vulnerability
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ inputs.python-version }}
+      - name: ruff check
+        run: uvx ruff check .
+      - name: ruff format --check
+        run: uvx ruff format --check .
+      - name: Install dependencies
+        run: |
+          set -e
+          if [ -f uv.lock ]; then
+            uv sync --frozen --all-extras --dev
+          else
+            uv venv
+            if [ -f pyproject.toml ]; then
+              if ! uv pip install -e ".[dev]"; then uv pip install -e .; fi
+            elif [ -f requirements.txt ]; then
+              uv pip install -r requirements.txt
+            fi
+          fi
+          if [ -f requirements-dev.txt ]; then uv pip install -r requirements-dev.txt; fi
+      - name: Tests
+        env:
+          TEST_COMMAND: ${{ inputs.test-command }}
+        run: |
+          if [ -n "$TEST_COMMAND" ]; then
+            uv run --no-sync sh -c "$TEST_COMMAND"
+          elif [ -d tests ] || [ -f pytest.ini ] || grep -qs '\[tool.pytest' pyproject.toml; then
+            uv run --no-sync --with pytest pytest
+          else
+            echo "no tests found; skipping"
+          fi
+
+  audit:
+    name: audit
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ !inputs.audit-blocking }}
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ inputs.python-version }}
+      - name: pip-audit
+        run: |
+          if [ -f uv.lock ]; then uv export --frozen --no-hashes --format requirements-txt > /tmp/requirements.txt
+          elif [ -f requirements.txt ]; then cp requirements.txt /tmp/requirements.txt
+          else echo "no lockfile or requirements.txt; skipping"; exit 0; fi
+          uvx pip-audit --strict -r /tmp/requirements.txt

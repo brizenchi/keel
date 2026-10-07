@@ -1,0 +1,78 @@
+# AGENTS.md
+
+Rules for AI coding assistants (Codex, Claude Code, Cursor, …) working in
+[[ project_name ]]. Subdirectories may add their own `AGENTS.md`; the closest one wins
+on conflict. Full standards: `docs/standards/` — read the linked document before
+working in that area. Project architecture and commands: `docs/standards/PROJECT.md`.
+
+The sections above "Project-specific rules" are maintained by dev-standards and
+updated with `uvx copier update`; edit the project section freely.
+
+## Must
+
+- Pass the request context (cancellation, deadline, trace) through every call down
+  to the database and outbound HTTP.
+- Use structured logging with a fixed message and key/value fields; let the logger
+  add `request_id`/`trace_id` from context. Never log secrets, tokens, request bodies
+  or query strings.
+- Handle each error once: add context and return it, or handle it at the boundary
+  (HTTP handler, consumer, job). Map known errors to responses in one place; unknown
+  errors log once at ERROR and return a generic message. → `docs/standards/CODE_STYLE.md`
+- HTTP APIs: `/api/v1` paths, one response envelope, correct status codes, a stable
+  `reason` for errors the client must branch on, `page`/`limit`/`items`/`total`
+  pagination, RFC 3339 UTC times, integer money in minor units. → `docs/standards/API_STANDARD.md`
+- When an API changes, update its callers' types/clients in the same change.
+- Database: never edit an applied migration; add a new one. Parameterized queries only;
+  list queries have `LIMIT` and a stable order; expand → migrate → contract for
+  breaking schema changes. → `docs/standards/DATABASE.md`
+- Check resource ownership on every read/write; return 404 for other users' resources.
+  → `docs/standards/SECURITY_STANDARD.md`
+- Add or update tests with every behaviour change; a bug fix starts with a failing test.
+  No network access in tests. → `docs/standards/TESTING.md`
+- Fake secrets in tests must look fake: `sk_test_not-a-real-key`, `whsec_not-a-real-secret`.
+[%- if 'go' in languages %]
+
+## Go
+- `gofmt -s`; `go vet`; `go test -race`. `ctx context.Context` is the first parameter,
+  never stored in structs; use `db.WithContext(ctx)` and `http.NewRequestWithContext`.
+- Wrap errors with `fmt.Errorf("…: %w", err)`; compare with `errors.Is/As`; log with
+  `slog.InfoContext(ctx, …)`. → `docs/standards/GO.md`
+[%- endif %]
+[%- if 'node' in languages %]
+
+## Node / TypeScript
+- Strict TypeScript, no `any`. All backend calls go through the shared API client; never
+  call `fetch` from components. Show users messages derived from `status`/`reason`, never
+  the raw server message; show the request id for 5xx. → `docs/standards/NODE.md`
+- Browser-exposed env vars (`NEXT_PUBLIC_*`, `VITE_*`) never contain secrets.
+[%- endif %]
+[%- if 'python' in languages %]
+
+## Python
+- `uv` for environments and dependencies (commit `uv.lock`); `ruff check` and
+  `ruff format`; type hints on public functions; `pytest`.
+- Raise domain exceptions with `from exc`; no bare `except:`. → `docs/standards/PYTHON.md`
+[%- endif %]
+
+## Must not
+
+- Commit real secrets or `.env` files; print secrets in output.
+- Push to `[[ default_branch ]]`, force-push, rewrite pushed history, or bypass hooks with `--no-verify`.
+- Add a dependency without a stated reason (`docs/standards/CI_QUALITY.md#依赖管理`).
+- Use float types for money or panic/exceptions for expected business outcomes.
+
+## Commits and pull requests
+
+Conventional Commits: `type(scope): subject` (≤ 72 chars) — types
+`feat fix perf refactor docs test build ci chore revert`. The PR title becomes the squash
+commit. → `docs/standards/GIT_WORKFLOW.md`
+
+## Before finishing
+
+Run the checks listed in `.github/pull_request_template.md` for the parts you changed and
+report failures as they are; never claim success without running them.
+
+## Project-specific rules
+
+<!-- Owned by this project. Add architecture boundaries, where code goes, project
+commands, and links to project skills (.claude/skills/*/SKILL.md). -->

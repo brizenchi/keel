@@ -1,0 +1,39 @@
+.DS_Store
+.idea/
+.vscode/
+*.log
+.env
+.env.*
+!.env.example
+[%- if 'go' in languages %]
+
+# Go
+*.test
+*.out
+coverage.txt
+[%- endif %]
+[%- if 'node' in languages %]
+
+# Node
+node_modules/
+.next/
+dist/
+coverage/
+[%- endif %]
+[%- if 'python' in languages %]
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+[%- endif %]
+[%- if ai_rules %]
+
+# Claude Code: share team config (settings.json, hooks, skills); keep personal files local.
+.claude/*
+!.claude/settings.json
+!.claude/hooks/
+!.claude/skills/
+[%- endif %]

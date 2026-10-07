@@ -1,0 +1,38 @@
+# Reusable: PR title must follow Conventional Commits (it becomes the squash
+# commit message). Standard: docs/standards/GIT_WORKFLOW.md
+name: pr-title
+
+on:
+  workflow_call:
+    inputs:
+      types:
+        description: Allowed commit types (regex alternation)
+        type: string
+        default: feat|fix|perf|refactor|docs|test|build|ci|chore|revert
+
+permissions:
+  contents: read
+
+jobs:
+  pr-title:
+    name: pr-title
+    if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Conventional Commits title
+        env:
+          # Passed through env, never interpolated into the script.
+          TITLE: ${{ github.event.pull_request.title }}
+          TYPES: ${{ inputs.types }}
+        run: |
+          export LC_ALL=C.UTF-8
+          case "$TITLE" in
+            "Revert \""*) exit 0 ;;
+          esac
+          pattern="^(${TYPES})(\([a-z0-9._/-]+\))?!?: [^ ].{0,71}$"
+          if printf '%s' "$TITLE" | grep -Eq "$pattern"; then
+            echo "✓ $TITLE"
+            exit 0
+          fi
+          echo "::error::PR title must be '<type>(<scope>): <subject>' (≤72 chars), types: ${TYPES//|/ }. Got: $TITLE"
+          exit 1

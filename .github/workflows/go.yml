@@ -1,0 +1,123 @@
+# Reusable: Go checks for one module. Standard: docs/standards/GO.md
+#   check — gofmt, go vet, go test -race
+#   lint  — golangci-lint (uses the module's or the repository's config when present)
+#   vuln  — govulncheck; non-blocking by default (a new CVE in a dependency must
+#           not fail the caller, e.g. a deploy that `needs:` this workflow)
+name: go
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        type: string
+        default: "."
+      packages:
+        description: Package patterns for vet, test, lint and govulncheck
+        type: string
+        default: "./..."
+      go-version-file:
+        description: Defaults to <working-directory>/go.mod
+        type: string
+        default: ""
+      lint:
+        type: boolean
+        default: true
+      lint-version:
+        description: golangci-lint version; v1.x uses golangci-lint-action@v6, v2.x uses @v8 (match your config format)
+        type: string
+        default: v2.5.0
+      vuln-blocking:
+        description: Fail the workflow when govulncheck finds a vulnerability
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: ${{ inputs.go-version-file || format('{0}/go.mod', inputs.working-directory) }}
+          cache-dependency-path: ${{ inputs.working-directory }}/go.sum
+      - name: gofmt
+        run: |
+          out=$(gofmt -s -l .)
+          if [ -n "$out" ]; then echo "::error::files need gofmt -s:"; echo "$out"; exit 1; fi
+      - name: go vet
+        env:
+          PACKAGES: ${{ inputs.packages }}
+        run: |
+          read -ra pkgs <<<"$PACKAGES"
+          go vet "${pkgs[@]}"
+      - name: go test -race
+        env:
+          PACKAGES: ${{ inputs.packages }}
+        run: |
+          read -ra pkgs <<<"$PACKAGES"
+          go test -race -cover "${pkgs[@]}"
+
+  lint:
+    name: lint
+    if: inputs.lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: ${{ inputs.go-version-file || format('{0}/go.mod', inputs.working-directory) }}
+          cache-dependency-path: ${{ inputs.working-directory }}/go.sum
+      - name: Locate config
+        id: config
+        env:
+          DIR: ${{ inputs.working-directory }}
+        run: |
+          for c in "$DIR/.golangci.yml" "$DIR/.golangci.yaml" .golangci.yml .golangci.yaml; do
+            if [ -f "$c" ]; then echo "args=--config=$GITHUB_WORKSPACE/$c" >> "$GITHUB_OUTPUT"; exit 0; fi
+          done
+          echo "args=" >> "$GITHUB_OUTPUT"
+      - name: golangci-lint (v2)
+        if: ${{ !startsWith(inputs.lint-version, 'v1.') }}
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: ${{ inputs.lint-version }}
+          # Build with the runner's Go so new language versions are understood.
+          install-mode: goinstall
+          working-directory: ${{ inputs.working-directory }}
+          args: ${{ steps.config.outputs.args }} ${{ inputs.packages }}
+      - name: golangci-lint (v1)
+        if: ${{ startsWith(inputs.lint-version, 'v1.') }}
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: ${{ inputs.lint-version }}
+          install-mode: goinstall
+          working-directory: ${{ inputs.working-directory }}
+          args: ${{ steps.config.outputs.args }} ${{ inputs.packages }}
+
+  vuln:
+    name: vuln
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ !inputs.vuln-blocking }}
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: ${{ inputs.go-version-file || format('{0}/go.mod', inputs.working-directory) }}
+          cache-dependency-path: ${{ inputs.working-directory }}/go.sum
+      - name: govulncheck
+        env:
+          PACKAGES: ${{ inputs.packages }}
+        run: |
+          read -ra pkgs <<<"$PACKAGES"
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck "${pkgs[@]}"
