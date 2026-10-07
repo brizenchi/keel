@@ -51,6 +51,14 @@ lint_output() { # lint_output <dir>
     bad "unrendered template syntax: $(grep -rlE '\[\[ |\[% |%\]' "$dst" --exclude-dir=.git --exclude=.gitleaks.toml --exclude=keel | tr '\n' ' ')"
   else pass "no unrendered template syntax"; fi
   if (cd "$dst" && python3 - <<'PY'
+import pathlib, re, sys
+cjk = re.compile(r"[\u4e00-\u9fff]")
+bad = [str(p) for p in pathlib.Path('.').rglob('*') if p.is_file() and '.git' not in p.parts
+       and cjk.search(p.read_text(errors='ignore'))]
+print("\n".join(bad)); sys.exit(1 if bad else 0)
+PY
+  ); then pass "output is English only"; else bad "non-English text in output"; fi
+  if (cd "$dst" && python3 - <<'PY'
 import pathlib, sys, yaml
 bad = []
 for p in pathlib.Path('.').rglob('*.y*ml'):
@@ -113,7 +121,8 @@ d=$(new_repo full)
 for f in .keel/answers.yml .keel/bin/keel .keel/required-checks.txt .github/workflows/keel.yml lefthook.yml \
          .gitleaks.toml .github/pull_request_template.md .github/CODEOWNERS .github/dependabot.yml SECURITY.md \
          .editorconfig .gitignore AGENTS.md CLAUDE.md .claude/settings.json docs/standards/GO.md docs/standards/NODE.md \
-         docs/standards/AI_ASSISTANTS.md docs/standards/PROJECT.md; do
+         docs/standards/AI_ASSISTANTS.md docs/standards/PROJECT.md docs/standards/API_STANDARD.md \
+         docs/standards/DATABASE.md docs/standards/INCIDENT_RESPONSE.md; do
   check "generated $f" "[ -e '$d/$f' ]"
 done
 check "no PYTHON.md without python" "[ ! -e '$d/docs/standards/PYTHON.md' ]"
@@ -138,6 +147,19 @@ done
 check "docs generated" "[ -f '$d/docs/standards/README.md' ]"
 check "no SECURITY.md link without security-policy" "! grep -q '(../../SECURITY.md)' '$d/docs/standards/SECURITY_STANDARD.md'"
 lint_output "$d"
+
+echo "== init: library without backend rules"
+d=$(new_repo lib)
+(cd "$d" && keel init --defaults -- --data 'languages=["python"]' --data backend=false >/dev/null)
+for f in API_STANDARD.md DATABASE.md INCIDENT_RESPONSE.md; do
+  check "not generated: docs/standards/$f" "[ ! -e '$d/docs/standards/$f' ]"
+done
+check "AGENTS.md has no HTTP API rules" "! grep -q 'HTTP APIs' '$d/AGENTS.md'"
+check "AGENTS.md has no money rule" "! grep -q 'float types for money' '$d/AGENTS.md'"
+check "PR template has no API/database items" "! grep -q 'Database changed' '$d/.github/pull_request_template.md'"
+lint_output "$d"
+commit_all "$d"
+out=$(cd "$d" && keel components); check "components lists backend as off" "grep -q 'off backend' <<<\"\$out\""
 
 echo "== init: ci component without languages produces no workflow"
 d=$(new_repo cionly)
@@ -172,6 +194,13 @@ commit_all "$d"
 
 (cd "$d" && keel enable ai >/dev/null)
 check "enable ai restores AGENTS.md" "[ -f '$d/AGENTS.md' ] && [ -f '$d/.claude/settings.json' ]"
+commit_all "$d"
+
+(cd "$d" && keel disable backend >/dev/null)
+check "disable backend removes API_STANDARD.md" "[ ! -e '$d/docs/standards/API_STANDARD.md' ] && grep -q 'backend: false' '$d/.keel/answers.yml'"
+commit_all "$d"
+(cd "$d" && keel enable backend >/dev/null)
+check "enable backend restores API_STANDARD.md" "[ -f '$d/docs/standards/API_STANDARD.md' ] && grep -q 'HTTP APIs' '$d/AGENTS.md'"
 commit_all "$d"
 
 check "rejects unknown component" "! (cd '$d' && keel enable nope >/dev/null 2>&1)"
@@ -210,19 +239,34 @@ d=$(new_repo upd)
 (cd "$d" && keel init --defaults -- --data 'languages=["go"]' >/dev/null); commit_all "$d"
 printf '\n- Local rule: services talk through the gateway only.\n' >> "$d/AGENTS.md"
 printf '\nProject owned text.\n' >> "$d/docs/standards/PROJECT.md"
-sed -i.bak 's/控制在 400 行以内/控制在 300 行以内/' "$d/docs/standards/GIT_WORKFLOW.md" && rm "$d/docs/standards/GIT_WORKFLOW.md.bak"
+sed -i.bak 's/aim for under 400 changed lines/aim for under 300 changed lines/' "$d/docs/standards/GIT_WORKFLOW.md" && rm "$d/docs/standards/GIT_WORKFLOW.md.bak"
+# answers written before the backend question existed
+sed -i.bak '/^backend: /d' "$d/.keel/answers.yml" && rm "$d/.keel/answers.yml.bak"
 commit_all "$d"
 gw="$work/tpl/template/[% if 'docs' in components %]docs[% endif %]/standards/GIT_WORKFLOW.md.jinja"
-sed -i.bak 's/禁止对 `\[\[ default_branch \]\]` 或任何已推送/严禁对 `[[ default_branch ]]` 或任何已推送/' "$gw" && rm "$gw.bak"
+sed -i.bak 's/\*\*Never force-push `\[\[ default_branch \]\]`/**Do not ever force-push `[[ default_branch ]]`/' "$gw" && rm "$gw.bak"
 printf '\nNew upstream paragraph.\n' >> "$work/tpl/template/[% if 'docs' in components %]docs[% endif %]/standards/PROJECT.md.jinja"
 (cd "$work/tpl" && git add -A && gitc commit -qm v2.1 && git tag v2.1.0)
 out=$(cd "$d" && keel status); check "status sees the new release" "grep -q 'v2.1.0 available' <<<\"\$out\""
 (cd "$d" && keel update >/dev/null)
 check "AGENTS.md project rule kept" "grep -q 'Local rule: services talk through the gateway only.' '$d/AGENTS.md'"
-check "local doc edit kept" "grep -q '控制在 300 行以内' '$d/docs/standards/GIT_WORKFLOW.md'"
-check "upstream doc change applied" "grep -q '严禁对 \`main\`' '$d/docs/standards/GIT_WORKFLOW.md'"
+check "local doc edit kept" "grep -q 'aim for under 300 changed lines' '$d/docs/standards/GIT_WORKFLOW.md'"
+check "upstream doc change applied" "grep -q 'Do not ever force-push \`main\`' '$d/docs/standards/GIT_WORKFLOW.md'"
+check "answers without backend keep backend docs" "[ -f '$d/docs/standards/API_STANDARD.md' ] && grep -q 'backend: true' '$d/.keel/answers.yml'"
 check "PROJECT.md untouched" "grep -q 'Project owned text.' '$d/docs/standards/PROJECT.md' && ! grep -q 'New upstream paragraph.' '$d/docs/standards/PROJECT.md'"
 check "answers record v2.1.0" "grep -q '_commit: v2.1.0' '$d/.keel/answers.yml'"
+
+# ---------------------------------------------------------------- install
+
+echo "== install.sh: checksum-verified download"
+rel="$work/release"; mkdir -p "$rel"
+cp "$repo/template/.keel/bin/keel" "$rel/keel"
+(cd "$rel" && if command -v sha256sum >/dev/null; then sha256sum keel; else shasum -a 256 keel; fi > SHA256SUMS)
+check "installs a verified release" \
+  "KEEL_DOWNLOAD_URL='file://$rel' KEEL_INSTALL_DIR='$work/bin' sh '$repo/install.sh' >/dev/null && '$test_bash' '$work/bin/keel' version | grep -q '^keel '"
+printf '# tampered\n' >> "$rel/keel"
+out=$(KEEL_DOWNLOAD_URL="file://$rel" KEEL_INSTALL_DIR="$work/bin2" sh "$repo/install.sh" 2>&1 || true)
+check "rejects a tampered download" "grep -q 'checksum mismatch' <<<\"\$out\" && [ ! -e '$work/bin2/keel' ]"
 
 echo
 if [ "$fail" -eq 0 ]; then echo "ALL CHECKS PASSED"; else echo "SOME CHECKS FAILED"; exit 1; fi

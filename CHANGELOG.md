@@ -7,6 +7,32 @@ reusable-workflow inputs are the public API.
 
 ## [Unreleased]
 
+## [2.1.0] — 2026-10-08
+
+### Changed
+
+- All generated standards documents, the PR template and generated comments are
+  now in English (previously Simplified Chinese). `keel update` merges the new
+  text like any upstream change; local edits are kept, but heavily edited
+  documents may need conflicts resolved by hand.
+
+### Added
+
+- `backend` component (on by default): API design, database and incident
+  response documents, plus the API, database, ownership and money rules in
+  `AGENTS.md` and the PR template. Turn it off for libraries, CLIs and other
+  projects without a service: `keel disable backend`. It is stored as its own
+  answer, so installations from 2.0 keep these documents on update.
+- Release assets: every release attaches the CLI and a `SHA256SUMS` file, and
+  `install.sh` installs the latest release and verifies its checksum
+  (`KEEL_VERSION` pins a release; `KEEL_REF` installs from a branch without
+  verification).
+
+### Fixed
+
+- `ONBOARDING.md` pointed Node users to `.copier-answers.yml` instead of
+  `.keel/answers.yml`.
+
 ## [2.0.0] — 2026-10-07
 
 The project is renamed from **dev-standards** to **keel**. See

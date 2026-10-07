@@ -28,6 +28,7 @@ $ keel init
   ◉ hooks           local git hooks: secret scan + formatters (lefthook.yml)
   ◯ ai              AI assistant rules: AGENTS.md, CLAUDE.md, Claude Code hooks
   …
+? Backend / web service rules: API design, databases, incident response (Y/n)
 ? Languages used in this repository  ◉ Go  ◉ Node / TypeScript  ◯ Python
 ```
 
@@ -101,7 +102,8 @@ listing the changed files, so each change is one reviewable diff.
 
 | Component | Files | Enforced by |
 | --- | --- | --- |
-| `docs` | `docs/standards/` — Git workflow, code review, code style and error handling, Go / Node / Python, API, database, security, testing, CI, incident response, onboarding, and a project-owned `PROJECT.md` | review |
+| `docs` | `docs/standards/` — Git workflow, code review, code style and error handling, Go / Node / Python, security, testing, CI, onboarding, and a project-owned `PROJECT.md` | review |
+| `backend` | API design, database and incident response documents, plus the matching rules in `AGENTS.md` and the PR template; turn it off for libraries and CLIs | review |
 | `ci` | `.github/workflows/keel.yml` — gofmt/vet/race tests/golangci-lint, package scripts, ruff/pytest, vulnerability audits | GitHub Actions |
 | `commit-lint` | Conventional Commits check of PR titles | GitHub Actions |
 | `secrets` | `.gitleaks.toml` + full-history scan | GitHub Actions, local hook |
@@ -110,8 +112,7 @@ listing the changed files, so each change is one reviewable diff.
 | `pr-template`, `codeowners`, `dependabot`, `security-policy`, `editorconfig`, `gitignore` | the usual repository files | GitHub |
 | `ai` | `AGENTS.md`, `CLAUDE.md`, Claude Code hooks (format edits, block `--no-verify` and force pushes) | the assistant / Claude Code |
 
-Details: [docs/components.md](docs/components.md). The standards documents are
-currently written in Simplified Chinese; an English edition is on the roadmap.
+Details: [docs/components.md](docs/components.md). All generated files are in English.
 
 ## Customising
 

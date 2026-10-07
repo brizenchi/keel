@@ -26,7 +26,10 @@ $ keel init
   ◉ hooks           本地提交钩子：密钥扫描 + 格式化（lefthook.yml）
   ◯ ai              AI 规则：AGENTS.md、CLAUDE.md、Claude Code Hooks
   …
+? Backend / web service rules: API design, databases, incident response (Y/n)
 ```
+
+生成的文件（规范文档、PR 模板、AGENTS.md）都是英文。
 
 ## 特点
 

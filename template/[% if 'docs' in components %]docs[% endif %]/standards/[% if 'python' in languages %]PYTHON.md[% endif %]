@@ -1,54 +1,54 @@
-# Python 规范
+# Python
 
-通用规则见 [CODE_STYLE.md](./CODE_STYLE.md)。
+General rules: [CODE_STYLE.md](./CODE_STYLE.md).
 
-## 工具
+## Tools
 
-| 工具 | 内容 | 在哪里运行 |
+| Tool | Checks | Where it runs |
 | --- | --- | --- |
-| [uv](https://docs.astral.sh/uv/) | 虚拟环境、依赖、锁文件 | 本地、CI |
-| `ruff check` | lint（替代 flake8、isort、pyupgrade 等） | CI `python-* / check` |
-| `ruff format` | 格式 | 本地提交前钩子、AI 助手的格式化钩子、CI |
-| `pytest` | 测试 | CI `python-* / check` |
-| `pip-audit` | 依赖漏洞 | CI `python-* / audit`（不阻止合并） |
-| 类型检查（mypy 或 pyright，可选） | 类型 | 在 `test_command` 中加入 |
+| [uv](https://docs.astral.sh/uv/) | virtual environments, dependencies, lock file | locally, CI |
+| `ruff check` | lint (replaces flake8, isort, pyupgrade and more) | CI `python-* / check` |
+| `ruff format` | formatting | pre-commit hook, the AI assistant's format hook, CI |
+| `pytest` | tests | CI `python-* / check` |
+| `pip-audit` | vulnerable dependencies | CI `python-* / audit` (does not block merging) |
+| Type checker (mypy or pyright, optional) | types | add it to the project's `test_command` |
 
-配置统一写在 `pyproject.toml` 中（`[tool.ruff]`、`[tool.pytest.ini_options]`）。
+Configuration lives in `pyproject.toml` (`[tool.ruff]`, `[tool.pytest.ini_options]`).
 
-## 依赖
+## Dependencies
 
-- 使用 `uv add` / `uv add --dev` 管理依赖，**提交 `uv.lock`**；
-- 生产依赖和开发依赖分开；
-- 新增依赖要在 PR 里说明理由（见 [CI_QUALITY.md](./CI_QUALITY.md#依赖管理)）。
+- Manage dependencies with `uv add` / `uv add --dev` and **commit `uv.lock`**.
+- Keep production and development dependencies separate.
+- A new dependency needs a stated reason (see [CI_QUALITY.md](./CI_QUALITY.md#dependencies)).
 
-## 代码
+## Code
 
-- 新代码写类型注解；公开函数必须有；
-- 命名：模块和函数 `snake_case`，类 `PascalCase`，常量 `UPPER_CASE`；
-- 不使用可变对象作为默认参数；
-- 路径使用 `pathlib`；时间使用带时区的 `datetime`（UTC）。
+- New code has type hints; public functions must.
+- Naming: modules and functions `snake_case`, classes `PascalCase`, constants `UPPER_CASE`.
+- No mutable default arguments.
+- Use `pathlib` for paths and timezone-aware `datetime` (UTC) for times.
 
-## 异常
+## Exceptions
 
-- 每个模块定义自己的业务异常，继承一个公共基类；
-- 不使用裸 `except:`，也不捕获 `Exception` 后静默忽略；
-- 重新抛出时保留原因：`raise BillingError("refund failed") from exc`；
-- 在边界（HTTP 处理函数、任务入口）统一把异常映射成响应，只对未知异常记 ERROR 日志并返回固定文案。
+- Each module defines its domain exceptions on a shared base class.
+- No bare `except:`, and never catch `Exception` only to ignore it.
+- Keep the cause when re-raising: `raise BillingError("refund failed") from exc`.
+- At the boundary (HTTP handler, task entry point), map exceptions to responses in one place; log only unknown exceptions at ERROR and return a fixed message.
 
-## 日志
+## Logging
 
-- 使用结构化日志（标准库 `logging` + JSON 格式化，或 `structlog`）；
-- 消息是固定短语，变化的值放进字段：`logger.info("invoice paid", extra={"invoice_id": id})`；
-- 自动带上 `request_id`、`trace_id`（通过 contextvars 或 OpenTelemetry 集成）；
-- 不打印密钥、token、请求体全文。
+- Structured logging (the standard `logging` module with a JSON formatter, or `structlog`).
+- Messages are fixed phrases with the varying values as fields: `logger.info("invoice paid", extra={"invoice_id": id})`.
+- `request_id` and `trace_id` are added automatically (contextvars or the OpenTelemetry integration).
+- Never log secrets, tokens or full request bodies.
 
-## 并发
+## Concurrency
 
-- async 代码里不调用阻塞的 IO；必须调用时用 `asyncio.to_thread`；
-- 后台任务要有明确的生命周期，并能被取消。
+- No blocking I/O in async code; when unavoidable, use `asyncio.to_thread`.
+- Background tasks have a clear lifecycle and can be cancelled.
 
-## 测试
+## Testing
 
-- 使用 `pytest`，测试放在 `tests/`，文件名 `test_*.py`；
-- 用 fixture 准备数据；外部 HTTP 用 `respx`、`responses` 等库模拟，不访问网络；
-- 修复缺陷时先写一个能复现问题的测试。
+- `pytest`, tests in `tests/`, files named `test_*.py`.
+- Prepare data with fixtures; fake outbound HTTP with `respx`, `responses` or similar — no network.
+- A bug fix starts with a test that reproduces the bug.

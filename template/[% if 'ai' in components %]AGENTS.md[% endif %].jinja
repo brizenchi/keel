@@ -20,7 +20,7 @@ project section freely.
 - Handle each error once: add context and return it, or handle it at the boundary
   (HTTP handler, consumer, job). Map known errors to responses in one place; unknown
   errors log once at ERROR and return a generic message. [% if 'docs' in components %]→ `docs/standards/CODE_STYLE.md`[% endif %]
-- HTTP APIs: `/api/v1` paths, one response envelope, correct status codes, a stable
+[% if backend %]- HTTP APIs: `/api/v1` paths, one response envelope, correct status codes, a stable
   `reason` for errors the client must branch on, `page`/`limit`/`items`/`total`
   pagination, RFC 3339 UTC times, integer money in minor units. [% if 'docs' in components %]→ `docs/standards/API_STANDARD.md`[% endif %]
 - When an API changes, update its callers' types/clients in the same change.
@@ -29,7 +29,7 @@ project section freely.
   breaking schema changes. [% if 'docs' in components %]→ `docs/standards/DATABASE.md`[% endif %]
 - Check resource ownership on every read/write; return 404 for other users' resources.
   [% if 'docs' in components %]→ `docs/standards/SECURITY_STANDARD.md`[% endif %]
-- Add or update tests with every behaviour change; a bug fix starts with a failing test.
+[% endif %]- Add or update tests with every behaviour change; a bug fix starts with a failing test.
   No network access in tests. [% if 'docs' in components %]→ `docs/standards/TESTING.md`[% endif %]
 - Fake secrets in tests must look fake: `sk_test_not-a-real-key`, `whsec_not-a-real-secret`.
 [%- if 'go' in languages %]
@@ -60,8 +60,8 @@ project section freely.
 
 - Commit real secrets or `.env` files; print secrets in output.
 - Push to `[[ default_branch ]]`, force-push, rewrite pushed history, or bypass hooks with `--no-verify`.
-- Add a dependency without a stated reason [% if 'docs' in components %](`docs/standards/CI_QUALITY.md#依赖管理`)[% endif %].
-- Use float types for money or panic/exceptions for expected business outcomes.
+- Add a dependency without a stated reason [% if 'docs' in components %](`docs/standards/CI_QUALITY.md#dependencies`)[% endif %].
+- Use panics/exceptions for expected business outcomes[% if backend %], or float types for money[% endif %].
 
 ## Commits and pull requests
 

@@ -93,6 +93,14 @@ components:
     "ai              AI assistant rules: AGENTS.md, CLAUDE.md, Claude Code hooks": ai
   default: '["docs", "ci", "commit-lint", "secrets", "hooks", "github", "pr-template", "codeowners", "dependabot", "security-policy", "editorconfig", "gitignore", "ai"]'
 
+# A separate yes/no question rather than a `components` entry, so projects
+# installed before it existed keep these files on update (new questions take
+# their default). The CLI lists and toggles it like any other component.
+backend:
+  type: bool
+  help: "Backend / web service rules: API design, databases, incident response"
+  default: true
+
 languages:
   type: str
   help: Languages used in this repository

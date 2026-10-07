@@ -100,4 +100,5 @@ last commit.
 | `KEEL_SOURCE` | `gh:brizenchi/keel` | Template source; a local path or fork works |
 | `KEEL_COPIER_SPEC` | `copier>=9.4,<10` | Copier version used |
 | `NO_COLOR` | | Disable coloured output |
-| `KEEL_REF`, `KEEL_INSTALL_DIR` | `v2`, `~/.local/bin` | Used by `install.sh` |
+| `KEEL_VERSION`, `KEEL_INSTALL_DIR` | latest release, `~/.local/bin` | Used by `install.sh`; the download is verified against the release's `SHA256SUMS` |
+| `KEEL_REF` | | `install.sh` only: install from a branch or commit instead of a release (no checksum) |

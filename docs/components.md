@@ -7,7 +7,8 @@ generates them again.
 
 | Component | Files | Notes |
 | --- | --- | --- |
-| `docs` | `docs/standards/*.md` | Git workflow, code review, code style, API, database, security, testing, CI, incident response, onboarding, index; `GO.md` / `NODE.md` / `PYTHON.md` per language; `AI_ASSISTANTS.md` with `ai`. `PROJECT.md` is project-owned. |
+| `docs` | `docs/standards/*.md` | Git workflow, code review, code style, security, testing, CI, onboarding, index; `GO.md` / `NODE.md` / `PYTHON.md` per language; `AI_ASSISTANTS.md` with `ai`; `API_STANDARD.md`, `DATABASE.md`, `INCIDENT_RESPONSE.md` with `backend`. `PROJECT.md` is project-owned. |
+| `backend` | the three documents above; API, database, ownership and money rules in `AGENTS.md`; API/database items in the PR template | On by default. Turn off for libraries, CLIs and other projects without a service. Stored as its own answer (`backend: true/false`) rather than in `components`, so 2.0 installations keep it on update; the CLI treats it like any other component. |
 | `ci` | jobs in `.github/workflows/keel.yml` | One job group per module/project listed in the answers. Needs at least one language. |
 | `commit-lint` | `commits` job in `keel.yml` | Checks the PR title (the squash commit message). |
 | `secrets` | `.gitleaks.toml`, `secrets` job in `keel.yml`, gitleaks step in `lefthook.yml` | Add historical false positives to `.gitleaksignore`. |
