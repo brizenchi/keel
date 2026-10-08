@@ -7,6 +7,16 @@ reusable-workflow inputs are the public API.
 
 ## [Unreleased]
 
+## [2.1.1] — 2026-10-08
+
+### Fixed
+
+- `keel update` (and `config`, `enable`, …) could end with
+  `syntax error near unexpected token` when the update replaced
+  `.keel/bin/keel` while it was running. The update itself had completed.
+  Updating from 2.1.0 or earlier still shows the message once, because the old
+  CLI is the one running.
+
 ## [2.1.0] — 2026-10-08
 
 ### Changed

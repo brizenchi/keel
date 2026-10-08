@@ -246,15 +246,20 @@ commit_all "$d"
 gw="$work/tpl/template/[% if 'docs' in components %]docs[% endif %]/standards/GIT_WORKFLOW.md.jinja"
 sed -i.bak 's/\*\*Never force-push `\[\[ default_branch \]\]`/**Do not ever force-push `[[ default_branch ]]`/' "$gw" && rm "$gw.bak"
 printf '\nNew upstream paragraph.\n' >> "$work/tpl/template/[% if 'docs' in components %]docs[% endif %]/standards/PROJECT.md.jinja"
+# the new release also changes the CLI, which then replaces itself mid-run
+cli="$work/tpl/template/.keel/bin/keel"
+{ head -1 "$cli"; printf '# %s\n' "padding that shifts every byte offset in the file" "$(printf 'x%.0s' $(seq 1 200))"; tail -n +2 "$cli"; } > "$cli.new"
+mv "$cli.new" "$cli"; chmod +x "$cli"
 (cd "$work/tpl" && git add -A && gitc commit -qm v2.1 && git tag v2.1.0)
 out=$(cd "$d" && keel status); check "status sees the new release" "grep -q 'v2.1.0 available' <<<\"\$out\""
-(cd "$d" && keel update >/dev/null)
+check "update with the project's own CLI exits cleanly" "(cd '$d' && '$test_bash' .keel/bin/keel update >/dev/null 2>&1)"
 check "AGENTS.md project rule kept" "grep -q 'Local rule: services talk through the gateway only.' '$d/AGENTS.md'"
 check "local doc edit kept" "grep -q 'aim for under 300 changed lines' '$d/docs/standards/GIT_WORKFLOW.md'"
 check "upstream doc change applied" "grep -q 'Do not ever force-push \`main\`' '$d/docs/standards/GIT_WORKFLOW.md'"
 check "answers without backend keep backend docs" "[ -f '$d/docs/standards/API_STANDARD.md' ] && grep -q 'backend: true' '$d/.keel/answers.yml'"
 check "PROJECT.md untouched" "grep -q 'Project owned text.' '$d/docs/standards/PROJECT.md' && ! grep -q 'New upstream paragraph.' '$d/docs/standards/PROJECT.md'"
 check "answers record v2.1.0" "grep -q '_commit: v2.1.0' '$d/.keel/answers.yml'"
+check "the project's CLI was updated" "grep -q 'padding that shifts' '$d/.keel/bin/keel'"
 
 # ---------------------------------------------------------------- install
 

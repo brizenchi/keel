@@ -8,7 +8,7 @@ set -euo pipefail
 # Compatible with bash 3.2 (macOS /bin/bash): empty arrays are expanded as
 # ${a[@]+"${a[@]}"} because "${a[@]}" fails under `set -u` there.
 
-KEEL_CLI_VERSION="2.1.0"
+KEEL_CLI_VERSION="2.1.1"
 KEEL_SOURCE=${KEEL_SOURCE:-gh:brizenchi/keel}
 KEEL_COPIER_SPEC=${KEEL_COPIER_SPEC:-copier>=9.4,<10}
 ANSWERS=.keel/answers.yml
@@ -543,4 +543,7 @@ main() {
   esac
 }
 
-main "$@"
+# `keel update` can replace this very file while it runs. Bash reads scripts
+# incrementally, so parse the call and the exit as one command: nothing after
+# it is ever read from the (possibly new) file.
+{ main "$@"; exit $?; }
