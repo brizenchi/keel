@@ -38,11 +38,19 @@ jobs:
         working-directory: ${{ inputs.working-directory }}
     steps:
       - uses: actions/checkout@v4
+      # Keep this step identical in the check and audit jobs.
       - name: Detect package manager
         id: pm
         env:
           REQUESTED: ${{ inputs.package-manager }}
         run: |
+          locks=""; count=0
+          for f in package-lock.json pnpm-lock.yaml yarn.lock; do
+            if [ -f "$f" ]; then locks="$locks $f"; count=$((count + 1)); fi
+          done
+          if [ "$count" -gt 1 ]; then
+            echo "::warning::several lock files in ${PWD##*/}:$locks - delete the ones you do not use; tools that pick by lock file (audits, deployment builders) may use a stale one"
+          fi
           case "$REQUESTED" in
             npm|pnpm|yarn) echo "name=$REQUESTED" >> "$GITHUB_OUTPUT" ;;
             *)
@@ -92,11 +100,37 @@ jobs:
         working-directory: ${{ inputs.working-directory }}
     steps:
       - uses: actions/checkout@v4
+      # Keep this step identical in the check and audit jobs.
+      - name: Detect package manager
+        id: pm
+        env:
+          REQUESTED: ${{ inputs.package-manager }}
+        run: |
+          locks=""; count=0
+          for f in package-lock.json pnpm-lock.yaml yarn.lock; do
+            if [ -f "$f" ]; then locks="$locks $f"; count=$((count + 1)); fi
+          done
+          if [ "$count" -gt 1 ]; then
+            echo "::warning::several lock files in ${PWD##*/}:$locks - delete the ones you do not use; tools that pick by lock file (audits, deployment builders) may use a stale one"
+          fi
+          case "$REQUESTED" in
+            npm|pnpm|yarn) echo "name=$REQUESTED" >> "$GITHUB_OUTPUT" ;;
+            *)
+              if [ -f package-lock.json ]; then echo "name=npm" >> "$GITHUB_OUTPUT"
+              elif [ -f pnpm-lock.yaml ]; then echo "name=pnpm" >> "$GITHUB_OUTPUT"
+              elif [ -f yarn.lock ]; then echo "name=yarn" >> "$GITHUB_OUTPUT"
+              else echo "name=npm" >> "$GITHUB_OUTPUT"; fi ;;
+          esac
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ inputs.node-version }}
+      # Audits the lock file of the same package manager the check job uses.
       - name: Audit production dependencies
+        env:
+          PM: ${{ steps.pm.outputs.name }}
         run: |
-          if [ -f pnpm-lock.yaml ]; then npx --yes pnpm@9 audit --prod --audit-level high
-          elif [ -f yarn.lock ]; then npx --yes yarn@1 audit --groups dependencies --level high
-          else npm audit --omit=dev --audit-level=high; fi
+          case "$PM" in
+            pnpm) npx --yes pnpm@9 audit --prod --audit-level high ;;
+            yarn) npx --yes yarn@1 audit --groups dependencies --level high ;;
+            *) npm audit --omit=dev --audit-level=high ;;
+          esac

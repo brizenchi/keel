@@ -7,6 +7,16 @@ reusable-workflow inputs are the public API.
 
 ## [Unreleased]
 
+## [2.1.2] — 2026-10-08
+
+### Fixed
+
+- `node.yml`: the `audit` job picked the package manager from the lock files
+  with pnpm first, while the `check` job honours `package-manager` (npm first
+  when detecting). With several lock files the audit could scan a stale one.
+  Both jobs now use the same detection, and warn when a directory contains
+  more than one lock file.
+
 ## [2.1.1] — 2026-10-08
 
 ### Fixed

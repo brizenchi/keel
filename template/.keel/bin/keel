@@ -8,7 +8,7 @@ set -euo pipefail
 # Compatible with bash 3.2 (macOS /bin/bash): empty arrays are expanded as
 # ${a[@]+"${a[@]}"} because "${a[@]}" fails under `set -u` there.
 
-KEEL_CLI_VERSION="2.1.1"
+KEEL_CLI_VERSION="2.1.2"
 KEEL_SOURCE=${KEEL_SOURCE:-gh:brizenchi/keel}
 KEEL_COPIER_SPEC=${KEEL_COPIER_SPEC:-copier>=9.4,<10}
 ANSWERS=.keel/answers.yml
